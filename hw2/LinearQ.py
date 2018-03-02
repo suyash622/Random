@@ -45,6 +45,7 @@ epsilon_end=0.05
 decay=(epsilon_start-epsilon_end)/100000
 batch_size=1
 max_steps=200
+gamma=0.99
 
 
 class DQN_Agent():
@@ -103,7 +104,7 @@ class DQN_Agent():
 					if done:
 						print ("Cummulative reward: ",total_reward)
 						new_state = np.reshape(new_state, [1, 4])
-						target = net.model(predict(new_state)[0])
+						target = net.model.predict(new_state)[0]
 						q_values = [reward,reward]
 						net.model(fit(state,q_values))
 						break
@@ -113,11 +114,11 @@ class DQN_Agent():
 						new_state = np.reshape(new_state, [1, 4])								
 						epsilon=epsilon_start+(epsilon_start-epsilon_end)*np.exp(decay*i)
 						
-						q_values= self.net.model(predict(state))
-						action=epsilon_greedy_policy(q_values,epsilon)
-						target_q = reward + gamma*(np.amax(net.predict(new_state)[0]))
+						q_values= self.net.model.predict(state)
+						action=self.epsilon_greedy_policy(q_values,epsilon)
+						target_q = reward + gamma*(np.amax(self.net.model.predict(new_state)[0]))
 						q_values[0][action]=target_q
-						net.fit(state,q_values)
+						self.net.model.fit(state,q_values)
 
 
 
