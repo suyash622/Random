@@ -16,7 +16,7 @@ class QNetwork():
 
 	def __init__(self,learning_rate,action_space):
 		self.model= Sequential()
-		self.model.add(Dense(action_space,activation='linear',input_dim=4))
+		self.model.add(Dense(action_s,activation='linear',input_dim=4))
 
 		self.optimizer=keras.optimizers.Adagrad(lr=learning_rate)
 		self.model.compile(loss='mse',optimizer=self.optimizer)
@@ -36,7 +36,7 @@ class QNetwork():
 
 
 
-action_space=2
+action_s=2
 learning_rate=0.0001
 max_steps=200
 episodes=1000000
@@ -65,21 +65,22 @@ class DQN_Agent():
 		# Here is also a good place to set environmental parameters,
 		# as well as training parameters - number of episodes / iterations, etc. 
 		self.env = environment_name
-		self.net=QNetwork(learning_rate,action_space)
-		self.q_values=np.zeros([batch_size,action_space])
+		self.net=QNetwork(learning_rate,action_s)
+		self.q_values=np.zeros([batch_size,action_s])
 		
 
 	def epsilon_greedy_policy(self, q_values,epsilon):
 		# Creating epsilon greedy probabilities to sample from.
 		if (epsilon>np.random.random()):
-			action=env.action_space.sample()
+			action=random.randrange(action_s)
 		else:
-			action=np.argmax(q_values)
-		
+			action=np.argmax(q_values[0])
+		return action		
 	def greedy_policy(self, q_values):
 		# Creating greedy policy for test time. 
 		
 		action=np.argmax(q_values)
+		return action
 	def train(self):
 		# In this function, we will train our network. 
 		# If training without experience replay_memory, then you will interact with the environment 
@@ -88,25 +89,29 @@ class DQN_Agent():
 		# If you are using a replay memory, you should interact with environment here, and store these 
 		# transitions to memory, while also updating your model.
 
-		print ("H")
-		env.reset()
+		
+		
 		for i in range(episodes):
 			step=0
-			state=np.zeros([1,4])
-			action=env.action_space.sample()
+			state=env.reset()
+			action=random.randrange(action_s)
+			state=np.reshape(state,[1,4])
 
 
 			while(step<max_steps):
-
+					env.render()
+					step+=1
 					total_reward=0
 					new_state, reward, done, _ = env.step(action)
 					total_reward += reward
+					step+=1
 					if done:
 						print ("Cummulative reward: ",total_reward)
 						new_state = np.reshape(new_state, [1, 4])
-						target = net.model.predict(new_state)[0]
-						q_values = [reward,reward]
-						net.model(fit(state,q_values))
+						# target = self.net.model.predict(new_state)[0]
+						target_q=reward
+						q_values[0][action] = target_q
+						self.net.model.fit(state,q_values)
 						break
 
 					else:
@@ -119,6 +124,7 @@ class DQN_Agent():
 						target_q = reward + gamma*(np.amax(self.net.model.predict(new_state)[0]))
 						q_values[0][action]=target_q
 						self.net.model.fit(state,q_values)
+						state=new_state
 
 
 
@@ -156,7 +162,7 @@ def main(args):
 	# Setting this as the default tensorflow session. 
 	keras.backend.tensorflow_backend.set_session(sess)
 	agent=DQN_Agent(environment_name)
-	print(agent)
+	# print(agent)
 	DQN_Agent.train(agent)
 
 	# You want to create an instance of the DQN_Agent class here, and then train / test it. 
