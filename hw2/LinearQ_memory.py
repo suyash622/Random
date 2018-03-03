@@ -8,7 +8,7 @@ import random
 import gym
 import sys
 
-env = gym.make('MountainCar-v0')
+env = gym.make('CartPole-v0')
 
 class QNetwork():
 
@@ -16,7 +16,9 @@ class QNetwork():
 
 	def __init__(self,learning_rate,action_space):
 		self.model= Sequential()
-		self.model.add(Dense(action_s,activation='linear',input_dim=2))
+		self.model.add(Dense(hidden_layer,activation='relu',input_dim=4))
+		self.model.add(Dense(hidden_layer,activation='relu'))
+		self.model.add(Dense(action_s,activation='linear'))
 
 		self.optimizer=keras.optimizers.Adagrad(lr=learning_rate)
 		self.model.compile(loss='mse',optimizer=self.optimizer)
@@ -36,17 +38,17 @@ class QNetwork():
 		
 
 
-state_space=2
+state_space=4
 action_s=2
 learning_rate=0.0001
-episodes=5000
+episodes=500000
 epsilon_start=0.5
 epsilon_end=0.05
 decay=(epsilon_start-epsilon_end)/100000
 batch_size=1
 max_steps=200
-gamma=1.0
-
+gamma=0.99
+hidden_layer=10
 
 class DQN_Agent():
 
@@ -90,12 +92,14 @@ class DQN_Agent():
 		# If you are using a replay memory, you should interact with environment here, and store these 
 		# transitions to memory, while also updating your model.
 
-		
+		memory=Replay_Memory()
 		
 		for i in range(episodes):
 			step=0
 			state=env.reset()
-			action=random.randrange(action_s)
+			# epsilon=epsilon_start+(epsilon_start-epsilon_end)*np.exp(decay*i)
+			# action=self.epsilon_greedy_policy(q_values,epsilon)
+			# action=random.randrange(action_s)
 			state=np.reshape(state,[1,state_space])
 			total_reward=0.0
 
@@ -103,31 +107,48 @@ class DQN_Agent():
 			while(step<max_steps):
 					env.render()
 					step+=1
-					
+					epsilon=epsilon_start+(epsilon_start-epsilon_end)*np.exp(decay*i)
+						
+					q_values= self.net.model.predict(state)
+					action=self.epsilon_greedy_policy(q_values,epsilon)
 					new_state, reward, done, _ = env.step(action)
+					new_state = np.reshape(new_state, [1, state_space])
+					memory.append([state,action,reward,new_state,done])
 					total_reward += reward
-					step+=1
+					
+
+
 					if done:
 						print ("Cummulative reward: ",total_reward, step)
-						new_state = np.reshape(new_state, [1, state_space])
-						# target = self.net.model.predict(new_state)[0]
-						target_q=reward
-						q_values[0][action] = target_q
-						self.net.model.fit(state,q_values,epochs=1,verbose=0)
 						break
-
-					else:
-
-						new_state = np.reshape(new_state, [1, state_space])								
-						epsilon=epsilon_start+(epsilon_start-epsilon_end)*np.exp(decay*i)
 						
-						q_values= self.net.model.predict(state)
-						action=self.epsilon_greedy_policy(q_values,epsilon)
-						target_q = reward + gamma*(np.amax(self.net.model.predict(new_state)[0]))
-						q_values[0][action]=target_q
-						self.net.model.fit(state,q_values,epochs=1,verbose=0)
-						state=new_state
+						# target = self.net.model.predict(new_state)[0]
+						# target_q=reward
+					# 	q_values[0][action] = target_q
+					# 	self.net.model.fit(state,q_values,epochs=1,verbose=0)
+					# 	break
 
+					# else:
+
+					# 	new_state = np.reshape(new_state, [1, state_space])								
+						
+					# 	target_q = reward + gamma*(np.amax(self.net.model.predict(new_state)[0]))
+					# 	q_values[0][action]=target_q
+					# 	self.net.model.fit(state,q_values,epochs=1,verbose=0)
+							# 	state=new_state
+					minibatch = memory.sample_batch()
+					for state,action,reward,new_state,done in minibatch:
+						if done:
+							q_values= self.net.model.predict(state)
+							target_q = reward
+							q_values[0][action]=target_q
+							self.net.model.fit(state,q_values,epochs=1,verbose=0)
+						else:
+
+							q_values= self.net.model.predict(state)
+							target_q = reward + gamma*(np.amax(self.net.model.predict(new_state)[0]))
+							q_values[0][action]=target_q
+							self.net.model.fit(state,q_values,epochs=1,verbose=0)
 
 
 		
@@ -152,8 +173,9 @@ class Replay_Memory():
 		# Burn in episodes define the number of episodes that are written into the memory from the 
 		# randomly initialized agent. Memory size is the maximum size after which old elements in the memory are replaced. 
 		# A simple (if not the most efficient) was to implement the memory is as a list of transitions. 
-		self.agent =DQN_Agent()
+		# self.agent =DQN_Agent()
 		self.transitions =[]
+		self.memory_size=memory_size
 		for i in range(burn_in):
 			state=env.reset()
 			action=random.randrange(action_s)
@@ -169,7 +191,7 @@ class Replay_Memory():
 		# This function returns a batch of randomly sampled transitions - i.e. state, action, reward, next state, terminal flag tuples. 
 		# You will feed this to your model to train.
 		
-		return random.sample(self.transitions,batch_size,False)
+		return random.sample(self.transitions,batch_size)
 
 
 
@@ -178,10 +200,10 @@ class Replay_Memory():
 
 	def append(self, transition):
 		# Appends transition to the memory. 	
-		if(len(self.transitions)<memory_size):
+		if(len(self.transitions)<self.memory_size):
 			self.transitions.append(transition)
 		else:
-			idx=random.randint(memory_size)
+			idx=random.randint(self.memory_size)
 			del sel.transitions[idx]
 			self.transitions.append(transition)
 
@@ -211,6 +233,7 @@ def main(args):
 	keras.backend.tensorflow_backend.set_session(sess)
 	agent=DQN_Agent(environment_name)
 	# print(agent)
+
 	DQN_Agent.train(agent)
 
 	# You want to create an instance of the DQN_Agent class here, and then train / test it. 
