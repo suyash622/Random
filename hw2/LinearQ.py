@@ -8,7 +8,7 @@ import random
 import gym
 import sys
 
-env = gym.make('CartPole-v0')
+env = gym.make('MountainCar-v0')
 
 class QNetwork():
 
@@ -16,36 +16,36 @@ class QNetwork():
 
 	def __init__(self,learning_rate,action_space):
 		self.model= Sequential()
-		self.model.add(Dense(action_s,activation='linear',input_dim=4))
+		self.model.add(Dense(action_s,activation='linear',input_dim=2))
 
 		self.optimizer=keras.optimizers.Adagrad(lr=learning_rate)
 		self.model.compile(loss='mse',optimizer=self.optimizer)
 		
 
-	def save_model_weights(self, suffix):
+	def save_model_weights(self, fname):
 		# Helper function to save your model / weights. 
-		pass
+		self.model.save_weights(fname)
 
 	def load_model(self, model_file):
 		# Helper function to load an existing model.
-		pass
+		self.model.load(model_file)
 
-	def load_model_weights(self,weight_file):
+	def load_model_weights(self,fname):
 		# Helper funciton to load model weights. 
-		pass
+		self.model.load_weights(fname)
+		
 
 
-
+state_space=2
 action_s=2
 learning_rate=0.0001
-max_steps=200
-episodes=1000000
+episodes=5000
 epsilon_start=0.5
 epsilon_end=0.05
 decay=(epsilon_start-epsilon_end)/100000
 batch_size=1
 max_steps=200
-gamma=0.99
+gamma=1.0
 
 
 class DQN_Agent():
@@ -67,6 +67,7 @@ class DQN_Agent():
 		self.env = environment_name
 		self.net=QNetwork(learning_rate,action_s)
 		self.q_values=np.zeros([batch_size,action_s])
+
 		
 
 	def epsilon_greedy_policy(self, q_values,epsilon):
@@ -95,35 +96,36 @@ class DQN_Agent():
 			step=0
 			state=env.reset()
 			action=random.randrange(action_s)
-			state=np.reshape(state,[1,4])
+			state=np.reshape(state,[1,state_space])
+			total_reward=0.0
 
 
 			while(step<max_steps):
 					env.render()
 					step+=1
-					total_reward=0
+					
 					new_state, reward, done, _ = env.step(action)
 					total_reward += reward
 					step+=1
 					if done:
-						print ("Cummulative reward: ",total_reward)
-						new_state = np.reshape(new_state, [1, 4])
+						print ("Cummulative reward: ",total_reward, step)
+						new_state = np.reshape(new_state, [1, state_space])
 						# target = self.net.model.predict(new_state)[0]
 						target_q=reward
 						q_values[0][action] = target_q
-						self.net.model.fit(state,q_values)
+						self.net.model.fit(state,q_values,epochs=1,verbose=0)
 						break
 
 					else:
 
-						new_state = np.reshape(new_state, [1, 4])								
+						new_state = np.reshape(new_state, [1, state_space])								
 						epsilon=epsilon_start+(epsilon_start-epsilon_end)*np.exp(decay*i)
 						
 						q_values= self.net.model.predict(state)
 						action=self.epsilon_greedy_policy(q_values,epsilon)
 						target_q = reward + gamma*(np.amax(self.net.model.predict(new_state)[0]))
 						q_values[0][action]=target_q
-						self.net.model.fit(state,q_values)
+						self.net.model.fit(state,q_values,epochs=1,verbose=0)
 						state=new_state
 
 
@@ -140,6 +142,48 @@ class DQN_Agent():
 		pass
 
 	
+class Replay_Memory():
+
+	def __init__(self, memory_size=50000, burn_in=10000):
+
+		# The memory essentially stores transitions recorder from the agent
+		# taking actions in the environment.
+
+		# Burn in episodes define the number of episodes that are written into the memory from the 
+		# randomly initialized agent. Memory size is the maximum size after which old elements in the memory are replaced. 
+		# A simple (if not the most efficient) was to implement the memory is as a list of transitions. 
+		self.agent =DQN_Agent()
+		self.transitions =[]
+		for i in range(burn_in):
+			state=env.reset()
+			action=random.randrange(action_s)
+			state=np.reshape(state,[1,state_space])
+			new_state, reward, done, _ = env.step(action)
+			new_state=np.reshape(new_state,[1,state_space])
+			self.transitions.append([state,action,reward,new_state,done])
+
+
+
+
+	def sample_batch(self, batch_size=32):
+		# This function returns a batch of randomly sampled transitions - i.e. state, action, reward, next state, terminal flag tuples. 
+		# You will feed this to your model to train.
+		
+		return np.random.choice(self.transitions,batch_size,False)
+
+
+
+
+
+
+	def append(self, transition):
+		# Appends transition to the memory. 	
+		pass
+
+
+
+
+
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description='Linear Q network parser')
