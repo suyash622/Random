@@ -14,10 +14,11 @@ class QNetwork():
 
 	
 
-	def __init__(self,learning_rate,action_space):
+	def __init__(self,learning_rate,action_space,input_dim):
 		self.model= Sequential()
-		self.model.add(Dense(hidden_layer,activation='relu',input_dim=4))
-		self.model.add(Dense(hidden_layer,activation='relu'))
+		self.model.add(Dense(hidden_layer,activation='relu',input_dim=input_dim))
+		self.model.add(Dense(20,activation='relu'))
+		self.model.add(Dense(20,activation='relu'))
 		self.model.add(Dense(action_s,activation='linear'))
 
 		self.optimizer=keras.optimizers.Adagrad(lr=learning_rate)
@@ -37,18 +38,18 @@ class QNetwork():
 		self.model.load_weights(fname)
 		
 
-
+input_dim=4
 state_space=4
 action_s=2
-learning_rate=0.0001
-episodes=500000
+learning_rate=0.001
+episodes=1000000
 epsilon_start=0.5
 epsilon_end=0.05
 decay=(epsilon_start-epsilon_end)/100000
-batch_size=1
+batch_size=32
 max_steps=200
 gamma=0.99
-hidden_layer=10
+hidden_layer=20
 
 class DQN_Agent():
 
@@ -67,7 +68,7 @@ class DQN_Agent():
 		# Here is also a good place to set environmental parameters,
 		# as well as training parameters - number of episodes / iterations, etc. 
 		self.env = environment_name
-		self.net=QNetwork(learning_rate,action_s)
+		self.net=QNetwork(learning_rate,action_s,input_dim)
 		self.q_values=np.zeros([batch_size,action_s])
 
 		
@@ -107,9 +108,10 @@ class DQN_Agent():
 			while(step<max_steps):
 					env.render()
 					step+=1
-					epsilon=epsilon_start+(epsilon_start-epsilon_end)*np.exp(decay*i)
-						
 					q_values= self.net.model.predict(state)
+					epsilon=epsilon_start+(epsilon_start-epsilon_end)*np.exp(decay*i)
+
+
 					action=self.epsilon_greedy_policy(q_values,epsilon)
 					new_state, reward, done, _ = env.step(action)
 					new_state = np.reshape(new_state, [1, state_space])
